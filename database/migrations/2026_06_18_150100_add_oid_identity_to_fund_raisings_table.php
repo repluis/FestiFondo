@@ -14,15 +14,19 @@ return new class extends Migration
                 $table->bigInteger('oid')->nullable()->after('id');
             });
         }
-        DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('fund_raisings_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.fund_raisings));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('fund_raisings_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.fund_raisings));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.fund_raisings ALTER COLUMN oid DROP NOT NULL;');
+        }
         if (Schema::hasColumn('fund_raisings', 'oid')) {
             Schema::table('fund_raisings', function (Blueprint $table) {
                 $table->dropColumn('oid');

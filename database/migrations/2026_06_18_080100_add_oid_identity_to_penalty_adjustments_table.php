@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('penalty_adjustments_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.penalty_adjustments));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('penalty_adjustments_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.penalty_adjustments));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.penalty_adjustments ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('penalty_adjustments', 'oid')) {
             Schema::table('penalty_adjustments', function (Blueprint $table) {

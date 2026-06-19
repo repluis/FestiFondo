@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('fee_payments_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.fee_payments));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('fee_payments_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.fee_payments));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.fee_payments ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('fee_payments', 'oid')) {
             Schema::table('fee_payments', function (Blueprint $table) {

@@ -15,16 +15,20 @@ return new class extends Migration
             });
         }
 
-        // PostgreSQL requiere NOT NULL antes de agregar IDENTITY
-        DB::statement('ALTER TABLE public.users ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.users ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('users_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.users));");
+        // PostgreSQL-specific: NOT NULL and IDENTITY column setup
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.users ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.users ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('users_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.users));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.users ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.users ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.users ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.users ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('users', 'oid')) {
             Schema::table('users', function (Blueprint $table) {

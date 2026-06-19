@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('payment_receipts_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.payment_receipts));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('payment_receipts_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.payment_receipts));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('payment_receipts', 'oid')) {
             Schema::table('payment_receipts', function (Blueprint $table) {

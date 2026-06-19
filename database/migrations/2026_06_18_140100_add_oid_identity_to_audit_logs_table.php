@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('audit_logs_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.audit_logs));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('audit_logs_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.audit_logs));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.audit_logs ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('audit_logs', 'oid')) {
             Schema::table('audit_logs', function (Blueprint $table) {

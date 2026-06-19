@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('monthly_fees_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.monthly_fees));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('monthly_fees_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.monthly_fees));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.monthly_fees ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('monthly_fees', 'oid')) {
             Schema::table('monthly_fees', function (Blueprint $table) {
