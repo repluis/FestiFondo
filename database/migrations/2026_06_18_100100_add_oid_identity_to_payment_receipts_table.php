@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (!Schema::hasColumn('payment_receipts', 'oid')) {
+            Schema::table('payment_receipts', function (Blueprint $table) {
+                $table->bigInteger('oid')->nullable()->after('id');
+            });
+        }
+
+        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid SET NOT NULL;');
+        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+        DB::statement("SELECT setval('payment_receipts_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.payment_receipts));");
+    }
+
+    public function down(): void
+    {
+        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+        DB::statement('ALTER TABLE public.payment_receipts ALTER COLUMN oid DROP NOT NULL;');
+
+        if (Schema::hasColumn('payment_receipts', 'oid')) {
+            Schema::table('payment_receipts', function (Blueprint $table) {
+                $table->dropColumn('oid');
+            });
+        }
+    }
+};
