@@ -1,5 +1,5 @@
 [deploy]
 startCommand = "/start.sh"
 healthcheckPath = "/up"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
