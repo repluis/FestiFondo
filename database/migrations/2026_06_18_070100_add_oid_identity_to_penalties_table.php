@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('penalties_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.penalties));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('penalties_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.penalties));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.penalties ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('penalties', 'oid')) {
             Schema::table('penalties', function (Blueprint $table) {

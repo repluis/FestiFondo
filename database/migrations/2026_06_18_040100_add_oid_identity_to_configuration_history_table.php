@@ -15,15 +15,19 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('configuration_history_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.configuration_history));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('configuration_history_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.configuration_history));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
-        DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid DROP NOT NULL;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+            DB::statement('ALTER TABLE public.configuration_history ALTER COLUMN oid DROP NOT NULL;');
+        }
 
         if (Schema::hasColumn('configuration_history', 'oid')) {
             Schema::table('configuration_history', function (Blueprint $table) {

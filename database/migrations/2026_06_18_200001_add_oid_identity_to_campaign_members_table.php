@@ -14,14 +14,18 @@ return new class extends Migration
                 $table->bigInteger('oid')->nullable()->after('id');
             });
         }
-        DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid SET NOT NULL;');
-        DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
-        DB::statement("SELECT setval('campaign_members_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.campaign_members));");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid SET NOT NULL;');
+            DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid ADD GENERATED ALWAYS AS IDENTITY;');
+            DB::statement("SELECT setval('campaign_members_oid_seq', (SELECT COALESCE(MAX(oid), 1) FROM public.campaign_members));");
+        }
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.campaign_members ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+        }
         if (Schema::hasColumn('campaign_members', 'oid')) {
             Schema::table('campaign_members', function (Blueprint $table) {
                 $table->dropColumn('oid');

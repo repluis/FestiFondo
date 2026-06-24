@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         // Check if oid is already an IDENTITY column
         $isIdentity = DB::selectOne("
             SELECT 1 FROM information_schema.columns
@@ -32,7 +36,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE public.transactions ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE public.transactions ALTER COLUMN oid DROP IDENTITY IF EXISTS;');
+        }
         if (Schema::hasColumn('transactions', 'oid')) {
             Schema::table('transactions', function (Blueprint $table) {
                 $table->dropColumn('oid');
