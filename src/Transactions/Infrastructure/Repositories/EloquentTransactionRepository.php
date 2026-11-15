@@ -127,6 +127,15 @@ class EloquentTransactionRepository implements TransactionRepositoryInterface
             ->increment('collected_amount', $amount);
     }
 
+    public function getTotalPaidByMember(int $memberOid): float
+    {
+        return (float) DB::table('transactions')
+            ->where('member_oid', $memberOid)
+            ->where('transaction_type', 'income')
+            ->where('status', true)
+            ->sum('amount');
+    }
+
     public function updateTransactionAuditSnapshot(string $uuid, array $fields): void
     {
         DB::table('transactions')->where('uuid', $uuid)->update($fields);

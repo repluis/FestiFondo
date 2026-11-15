@@ -19,6 +19,7 @@ interface TransactionRepositoryInterface
     public function incrementCampaignCollected(int $campaignOid, float $amount): void;
 
     public function getPendingPenaltiesBalance(int $memberOid): float;
+    public function getTotalPaidByMember(int $memberOid): float;
     public function updateTransactionAuditSnapshot(string $uuid, array $fields): void;
     public function createTransactionDetail(array $data): void;
 }

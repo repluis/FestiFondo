@@ -33,6 +33,8 @@ class EloquentReportsRepository implements ReportsRepositoryInterface
                 't.new_penalties_balance',
                 't.previous_fees_balance',
                 't.new_fees_balance',
+                't.previous_total_paid',
+                't.new_total_paid',
                 DB::raw("(m.first_name || ' ' || m.last_name) as member_name"),
                 'fr.name as campaign_name',
             ]);
@@ -82,6 +84,8 @@ class EloquentReportsRepository implements ReportsRepositoryInterface
                 newPenaltiesBalance:      isset($row->new_penalties_balance)      ? (float) $row->new_penalties_balance      : null,
                 previousFeesBalance:      isset($row->previous_fees_balance)      ? (float) $row->previous_fees_balance      : null,
                 newFeesBalance:           isset($row->new_fees_balance)           ? (float) $row->new_fees_balance           : null,
+                previousTotalPaid:        isset($row->previous_total_paid)        ? (float) $row->previous_total_paid        : null,
+                newTotalPaid:             isset($row->new_total_paid)             ? (float) $row->new_total_paid             : null,
             ))
             ->all();
     }

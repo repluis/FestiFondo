@@ -25,5 +25,7 @@ class TransactionReport
         public readonly ?float  $newPenaltiesBalance,
         public readonly ?float  $previousFeesBalance,
         public readonly ?float  $newFeesBalance,
+        public readonly ?float  $previousTotalPaid,
+        public readonly ?float  $newTotalPaid,
     ) {}
 }

@@ -31,6 +31,7 @@ class ApplyPaymentUseCase
             // Snapshot balances BEFORE applying
             $prevPenaltiesBalance = $this->repository->getPendingPenaltiesBalance($dto->memberOid);
             $prevFeesBalance      = $this->repository->getPendingFeesBalance($dto->memberOid);
+            $prevTotalPaid        = $this->repository->getTotalPaidByMember($dto->memberOid);
 
             Log::info('[ApplyPaymentUseCase] Step 2 — Creating transaction record');
             $transaction = $this->repository->create([
@@ -139,6 +140,7 @@ class ApplyPaymentUseCase
             // Snapshot balances AFTER applying and persist audit fields
             $newPenaltiesBalance = $this->repository->getPendingPenaltiesBalance($dto->memberOid);
             $newFeesBalance      = $this->repository->getPendingFeesBalance($dto->memberOid);
+            $newTotalPaid        = round($prevTotalPaid + $dto->amount, 2);
 
             $this->repository->updateTransactionAuditSnapshot($transaction->uuid, [
                 'previous_penalties_balance' => $prevPenaltiesBalance,
@@ -147,6 +149,8 @@ class ApplyPaymentUseCase
                 'new_fees_balance'           => $newFeesBalance,
                 'applied_to_penalties'       => $penaltiesPaid,
                 'applied_to_fees'            => $feesPaid,
+                'previous_total_paid'        => $prevTotalPaid,
+                'new_total_paid'             => $newTotalPaid,
             ]);
 
             foreach ($details as $detail) {
@@ -162,6 +166,8 @@ class ApplyPaymentUseCase
                 'new_penalties_balance'      => $newPenaltiesBalance,
                 'previous_fees_balance'      => $prevFeesBalance,
                 'new_fees_balance'           => $newFeesBalance,
+                'previous_total_paid'        => $prevTotalPaid,
+                'new_total_paid'             => $newTotalPaid,
                 'campaign_oid'               => $dto->campaignOid,
             ]);
 
@@ -175,6 +181,8 @@ class ApplyPaymentUseCase
                 'new_penalties_balance'      => $newPenaltiesBalance,
                 'previous_fees_balance'      => $prevFeesBalance,
                 'new_fees_balance'           => $newFeesBalance,
+                'previous_total_paid'        => $prevTotalPaid,
+                'new_total_paid'             => $newTotalPaid,
             ];
         });
     }

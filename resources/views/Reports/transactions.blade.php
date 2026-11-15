@@ -234,7 +234,7 @@
         {{-- ── Table ───────────────────────────────────────────────────────────── --}}
         <x-ui.card title="Transacciones">
             <div style="overflow-x:auto;">
-            <x-ui.table :headers="['Fecha', 'Tipo', 'Miembro', 'Campaña', 'Monto', 'A mora', 'A cuotas', 'Mora ant.', 'Mora nueva', 'Cuotas ant.', 'Cuotas nueva', 'Descripción', 'Estado']">
+            <x-ui.table :headers="['Fecha', 'Tipo', 'Miembro', 'Campaña', 'Monto', 'A mora', 'A cuotas', 'Mora ant.', 'Mora nueva', 'Cuotas ant.', 'Cuotas nueva', 'Total pag. ant.', 'Total pag. actual', 'Descripción', 'Estado']">
                 @forelse($transactions ?? [] as $tx)
                 <tr style="border-bottom:1px solid var(--color-border); transition:background .1s;"
                     onmouseover="this.style.background='var(--color-bg-overlay)'"
@@ -292,6 +292,14 @@
                     <td style="padding:.875rem 1rem; text-align:right; white-space:nowrap; color:var(--color-text-muted); font-size:.85rem;">
                         {{ $tx->newFeesBalance !== null ? '$'.number_format($tx->newFeesBalance, 2) : '—' }}
                     </td>
+
+                    <td style="padding:.875rem 1rem; text-align:right; white-space:nowrap; color:var(--color-text-muted); font-size:.85rem;">
+                        {{ $tx->previousTotalPaid !== null ? '$'.number_format($tx->previousTotalPaid, 2) : '—' }}
+                    </td>
+
+                    <td style="padding:.875rem 1rem; text-align:right; white-space:nowrap; color:var(--color-success); font-size:.85rem; font-weight:600;">
+                        {{ $tx->newTotalPaid !== null ? '$'.number_format($tx->newTotalPaid, 2) : '—' }}
+                    </td>
                     {{-- ── /Audit snapshot ───────────────────────────────── --}}
 
                     <td style="padding:.875rem 1rem; color:var(--color-text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
@@ -310,7 +318,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="13" style="padding:3rem 1rem; text-align:center; color:var(--color-text-muted);">
+                    <td colspan="15" style="padding:3rem 1rem; text-align:center; color:var(--color-text-muted);">
                         No se encontraron transacciones con los filtros seleccionados.
                     </td>
                 </tr>

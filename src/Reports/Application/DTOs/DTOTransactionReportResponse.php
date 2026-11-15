@@ -27,6 +27,8 @@ class DTOTransactionReportResponse
         public readonly ?float  $newPenaltiesBalance,
         public readonly ?float  $previousFeesBalance,
         public readonly ?float  $newFeesBalance,
+        public readonly ?float  $previousTotalPaid,
+        public readonly ?float  $newTotalPaid,
     ) {}
 
     public static function fromEntity(TransactionReport $entity): self
@@ -52,6 +54,8 @@ class DTOTransactionReportResponse
             newPenaltiesBalance:      $entity->newPenaltiesBalance,
             previousFeesBalance:      $entity->previousFeesBalance,
             newFeesBalance:           $entity->newFeesBalance,
+            previousTotalPaid:        $entity->previousTotalPaid,
+            newTotalPaid:             $entity->newTotalPaid,
         );
     }
 }

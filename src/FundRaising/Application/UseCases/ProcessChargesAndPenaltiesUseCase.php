@@ -15,7 +15,6 @@ class ProcessChargesAndPenaltiesUseCase
     public function execute(int $triggeredByOid, ?string $campaignUuid = null): array
     {
         $today       = Carbon::today();
-        $campaignOid = $campaignUuid ? $this->repository->getCampaignOidByUuid($campaignUuid) : null;
         $processName = $campaignUuid
             ? 'fees_and_penalties_campaign_' . substr($campaignUuid, 0, 8)
             : 'fees_and_penalties';
@@ -91,15 +90,19 @@ class ProcessChargesAndPenaltiesUseCase
             $penaltiesGenerated = 0;
 
             foreach ($members as $member) {
-                $memberOid = $member->oid ?? $member->id;
+                $memberOid      = $member->oid ?? $member->id;
+                $memberCampaignOid = $member->campaign_oid;
 
                 Log::info('[ProcessChargesAndPenaltiesUseCase] Step 6 — Generating monthly fee', [
                     'member_oid' => $memberOid,
                 ]);
-                if (!$this->repository->monthlyFeeExistsForMember($memberOid, $periodYear, $periodMonth, $campaignOid)) {
+                if (
+                    $today->greaterThanOrEqualTo($dueDate)
+                    && !$this->repository->monthlyFeeExistsForMember($memberOid, $periodYear, $periodMonth, $memberCampaignOid)
+                ) {
                     $this->repository->createMonthlyFee([
                         'member_oid'               => $memberOid,
-                        'campaign_oid'             => $campaignOid,
+                        'campaign_oid'             => $memberCampaignOid,
                         'period_year'              => $periodYear,
                         'period_month'             => $periodMonth,
                         'due_date'                 => $dueDate->toDateString(),
@@ -114,34 +117,50 @@ class ProcessChargesAndPenaltiesUseCase
                     $feesGenerated++;
                 }
 
-                if ($today->greaterThan($dueDate)) {
-                    $daysOverdue    = (int) $dueDate->diffInDays($today);
-                    $pendingBalance = $this->repository->getPendingFeeBalance($memberOid, $campaignOid);
+                $oldestDueDateRaw = $this->repository->getOldestUnpaidFeeDueDate($memberOid, $memberCampaignOid);
 
-                    if ($pendingBalance > 0) {
-                        Log::info('[ProcessChargesAndPenaltiesUseCase] Step 7 — Generating daily penalty', [
-                            'member_oid'      => $memberOid,
-                            'days_overdue'    => $daysOverdue,
-                            'pending_balance' => $pendingBalance,
-                        ]);
-                        if (!$this->repository->penaltyExistsForMember($memberOid, $today->toDateString(), $campaignOid)) {
-                            $this->repository->createPenalty([
-                                'member_oid'               => $memberOid,
-                                'campaign_oid'             => $campaignOid,
-                                'period_year'              => $periodYear,
-                                'period_month'             => $periodMonth,
-                                'penalty_date'             => $today->toDateString(),
-                                'days_overdue'             => $daysOverdue,
-                                'daily_rate_snapshot'      => $dailyRate,
-                                'amount'                   => $dailyRate,
-                                'amount_paid'              => 0,
-                                'balance'                  => $dailyRate,
-                                'penalty_status'           => 'pending',
-                                'generated_by_process_oid' => $processId,
-                                'created_at'               => now(),
-                                'updated_at'               => now(),
+                if ($oldestDueDateRaw !== null) {
+                    $oldestDueDate = Carbon::parse($oldestDueDateRaw)->startOfDay();
+
+                    if ($today->greaterThan($oldestDueDate)) {
+                        $pendingBalance = $this->repository->getPendingFeeBalance($memberOid, $memberCampaignOid);
+
+                        if ($pendingBalance > 0) {
+                            $lastPenaltyDateRaw = $this->repository->getLastPenaltyDate($memberOid, $memberCampaignOid);
+                            $cursor = $lastPenaltyDateRaw
+                                ? Carbon::parse($lastPenaltyDateRaw)->startOfDay()->addDay()
+                                : $oldestDueDate->copy()->addDay();
+
+                            Log::info('[ProcessChargesAndPenaltiesUseCase] Step 7 — Generating daily penalties', [
+                                'member_oid'      => $memberOid,
+                                'oldest_due_date' => $oldestDueDate->toDateString(),
+                                'from'            => $cursor->toDateString(),
+                                'to'              => $today->toDateString(),
+                                'pending_balance' => $pendingBalance,
                             ]);
-                            $penaltiesGenerated++;
+
+                            while ($cursor->lessThanOrEqualTo($today)) {
+                                if (!$this->repository->penaltyExistsForMember($memberOid, $cursor->toDateString(), $memberCampaignOid)) {
+                                    $this->repository->createPenalty([
+                                        'member_oid'               => $memberOid,
+                                        'campaign_oid'             => $memberCampaignOid,
+                                        'period_year'              => $cursor->year,
+                                        'period_month'             => $cursor->month,
+                                        'penalty_date'             => $cursor->toDateString(),
+                                        'days_overdue'             => (int) $oldestDueDate->diffInDays($cursor),
+                                        'daily_rate_snapshot'      => $dailyRate,
+                                        'amount'                   => $dailyRate,
+                                        'amount_paid'              => 0,
+                                        'balance'                  => $dailyRate,
+                                        'penalty_status'           => 'pending',
+                                        'generated_by_process_oid' => $processId,
+                                        'created_at'               => now(),
+                                        'updated_at'               => now(),
+                                    ]);
+                                    $penaltiesGenerated++;
+                                }
+                                $cursor->addDay();
+                            }
                         }
                     }
                 }

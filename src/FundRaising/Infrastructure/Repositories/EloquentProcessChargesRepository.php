@@ -73,12 +73,7 @@ class EloquentProcessChargesRepository implements ProcessChargesRepositoryInterf
             $query->where('fr.uuid', $campaignUuid);
         }
 
-        return $query->select(['m.id', 'm.oid'])->distinct()->get()->all();
-    }
-
-    public function getCampaignOidByUuid(string $uuid): ?int
-    {
-        return DB::table('fund_raisings')->where('uuid', $uuid)->value('oid');
+        return $query->select(['m.id', 'm.oid', 'cm.campaign_oid'])->distinct()->get()->all();
     }
 
     public function getCampaignFeeRates(string $uuid): array
@@ -119,6 +114,15 @@ class EloquentProcessChargesRepository implements ProcessChargesRepositoryInterf
             ->sum('balance');
     }
 
+    public function getOldestUnpaidFeeDueDate(int $memberOid, ?int $campaignOid = null): ?string
+    {
+        return DB::table('monthly_fees')
+            ->where('member_oid', $memberOid)
+            ->whereIn('fee_status', ['pending', 'partial'])
+            ->when($campaignOid !== null, fn($q) => $q->where('campaign_oid', $campaignOid))
+            ->min('due_date');
+    }
+
     public function penaltyExistsForMember(int $memberOid, string $date, ?int $campaignOid = null): bool
     {
         return DB::table('penalties')
@@ -131,6 +135,14 @@ class EloquentProcessChargesRepository implements ProcessChargesRepositoryInterf
     public function createPenalty(array $data): void
     {
         DB::table('penalties')->insert($data);
+    }
+
+    public function getLastPenaltyDate(int $memberOid, ?int $campaignOid = null): ?string
+    {
+        return DB::table('penalties')
+            ->where('member_oid', $memberOid)
+            ->when($campaignOid !== null, fn($q) => $q->where('campaign_oid', $campaignOid))
+            ->max('penalty_date');
     }
 
     public function completeProcessExecution(int $id, array $data): void
