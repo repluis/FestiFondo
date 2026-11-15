@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Src\Campaigns\Infrastructure\Http\Controllers\CampaignController;
 
-Route::prefix('v1/financial/campaigns')->middleware(['web'])->group(function () {
+Route::prefix('v1/financial/campaigns')->middleware(['web', 'auth'])->group(function () {
     Route::get('/',                  [CampaignController::class, 'index'])->name('campaigns.index');
     Route::get('/create',            [CampaignController::class, 'create'])->name('campaigns.create');
     Route::post('/',                 [CampaignController::class, 'store'])->name('campaigns.store');

@@ -1,8 +1,16 @@
 .env
 .env.local
+.env.backup
 node_modules
+vendor
+public/build
+public/hot
 .git
 .gitignore
+.claude
+tests
+.phpunit.result.cache
+bootstrap/cache/*.php
 storage/logs/*.log
 storage/framework/cache/data/*
 storage/framework/sessions/*

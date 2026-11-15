@@ -157,10 +157,12 @@
             </form>
 
             {{-- Link a registro --}}
+            @if (Route::has('auth.register'))
             <div class="mt-5 text-center">
                 <span style="color: var(--color-text-muted); font-size: 0.875rem;">¿No tienes cuenta?</span>
                 <a href="{{ route('auth.register') }}" class="link ml-1">Crear cuenta</a>
             </div>
+            @endif
         </div>
 
         {{-- Footer --}}

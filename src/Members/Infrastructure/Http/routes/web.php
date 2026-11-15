@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Src\Members\Infrastructure\Http\Controllers\MembersController;
 
-Route::prefix('v1/financial/members')->middleware(['web'])->group(function () {
+Route::prefix('v1/financial/members')->middleware(['web', 'auth'])->group(function () {
     Route::get('/',             [MembersController::class, 'index'])->name('members.index');
     Route::get('/create',       [MembersController::class, 'create'])->name('members.create');
     Route::post('/',            [MembersController::class, 'store'])->name('members.store');

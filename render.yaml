@@ -1,0 +1,58 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+# Crea el servicio web (Docker) y la base de datos Postgres, y los conecta.
+services:
+  - type: web
+    name: festifondo
+    runtime: docker
+    plan: free
+    region: virginia            # debe ser la misma región que la base de datos
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      # Generar con: php artisan key:generate --show  (pegar el valor completo, con "base64:")
+      - key: APP_KEY
+        sync: false
+      - key: APP_NAME
+        value: FestiFondo
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_LOCALE
+        value: es
+      # APP_URL se toma automáticamente de RENDER_EXTERNAL_URL (ver start.sh).
+      # Si usas un dominio propio, agrégalo aquí: - key: APP_URL / value: https://tu-dominio.com
+
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: festifondo-db
+          property: connectionString
+
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr           # los logs se ven en la pestaña "Logs" de Render
+      - key: LOG_LEVEL
+        value: info
+      - key: PHP_CLI_SERVER_WORKERS
+        value: "4"              # atender varias peticiones a la vez con artisan serve
+
+      # Token para el endpoint /run-seeds?token=... (carga de datos iniciales)
+      - key: SEED_TOKEN
+        generateValue: true
+
+databases:
+  - name: festifondo-db
+    plan: free
+    region: virginia
+    databaseName: festifondo
+    user: festifondo

@@ -16,6 +16,12 @@
                 ['url' => '/v1/financial/members', 'label' => 'Miembros', 'icon' => '👥'],
             ],
         ],
+        'juegos' => [
+            'label' => 'Juegos',
+            'links' => [
+                ['url' => '/v1/games/secret-santa', 'label' => 'Amigo Secreto', 'icon' => '🎁'],
+            ],
+        ],
     ];
 
     // Detectar la sección activa según la URL actual

@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Src\FundTransfers\Infrastructure\Http\Controllers\FundTransferController;
 
-Route::prefix('v1/financial/fund-transfers')->middleware(['web'])->group(function () {
+Route::prefix('v1/financial/fund-transfers')->middleware(['web', 'auth'])->group(function () {
     Route::get('/', [FundTransferController::class, 'index'])->name('fund-transfers.index');
     Route::get('/create', [FundTransferController::class, 'create'])->name('fund-transfers.create');
     Route::post('/', [FundTransferController::class, 'store'])->name('fund-transfers.store');

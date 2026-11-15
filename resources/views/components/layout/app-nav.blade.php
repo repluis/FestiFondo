@@ -108,6 +108,12 @@
                 ['url' => '/v1/reports/transactions', 'label' => 'Transacciones', 'icon' => '📋'],
             ],
         ],
+        [
+            'label' => 'Juegos',
+            'items' => [
+                ['url' => '/v1/games/secret-santa', 'label' => 'Amigo Secreto', 'icon' => '🎁'],
+            ],
+        ],
     ];
 @endphp
 

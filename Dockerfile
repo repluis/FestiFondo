@@ -15,11 +15,17 @@ WORKDIR /app
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
-RUN npm ci && npm run build
+RUN npm ci && npm run build && rm -rf node_modules
 
-EXPOSE 8080
+# Laravel necesita escribir en storage/ y bootstrap/cache/
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 COPY start.sh /start.sh
-RUN chmod +x /start.sh
+# Quitar saltos de línea de Windows (CRLF) por si el archivo se editó en Windows
+RUN sed -i 's/\r$//' /start.sh && chmod +x /start.sh
+
+# Render usa PORT=10000 y Railway su propio PORT; start.sh lee $PORT
+EXPOSE 8080
 
 CMD ["/start.sh"]

@@ -53,10 +53,12 @@
                             Ir al Dashboard
                         </a>
                     @else
+                        @if (Route::has('auth.register'))
                         <a href="{{ route('auth.register') }}"
                            style="padding: 0.65rem 1.5rem; border-radius: var(--radius-md); background: var(--color-primary); color: #fff; font-weight: 600; text-decoration: none; font-size: 0.9rem;">
                             Comenzar gratis
                         </a>
+                        @endif
                         <a href="{{ route('auth.login') }}"
                            style="padding: 0.65rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); color: var(--color-text-secondary); font-weight: 500; text-decoration: none; font-size: 0.9rem;">
                             Iniciar sesión

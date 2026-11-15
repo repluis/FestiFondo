@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         \Src\Members\Infrastructure\Providers\MembersServiceProvider::class,
         \Src\Transactions\Infrastructure\Providers\TransactionServiceProvider::class,
         \Src\Reports\Infrastructure\Providers\ReportsServiceProvider::class,
+        \Src\Games\Infrastructure\Providers\GamesServiceProvider::class,
     ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -22,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->redirectGuestsTo(fn () => route('auth.login'));
+        $middleware->redirectUsersTo(fn () => route('dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
