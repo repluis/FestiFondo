@@ -64,12 +64,40 @@
                             · faltan ${{ number_format($c->remaining(), 2) }}
                         </span>
                     </div>
+                    @php
+                        // Texto para WhatsApp: *negrita*, _cursiva_
+                        $t = $transparency[$c->uuid] ?? null;
+                        $waText = '';
+                        if ($t) {
+                            $lines = [
+                                '🤝 *Transparencia financiera*',
+                                '📣 '.ucfirst(str_replace('_', ' ', $c->name)),
+                                '📅 Actualizado al '.now()->format('d/m/Y'),
+                                '',
+                            ];
+                            foreach ($t['members'] as $i => $m) {
+                                $lines[] = ($i + 1).'. '.$m['name'].' — $'.number_format($m['total'], 2);
+                            }
+                            $lines[] = '';
+                            $lines[] = '💰 *Total aportado: $'.number_format($t['total'], 2).'*';
+                            $lines[] = '_Montos sin incluir pagos de mora._';
+                            $lines[] = '';
+                            $lines[] = '🔗 '.route('transparency', $c->uuid);
+                            $waText = implode("\n", $lines);
+                        }
+                    @endphp
                     <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.85rem;">
                         <button type="button" class="dash-link primary share-btn" style="cursor:pointer; font-family:inherit;"
                                 data-url="{{ route('transparency', $c->uuid) }}"
                                 data-title="Transparencia financiera — {{ ucfirst(str_replace('_', ' ', $c->name)) }}">
                             🤝 Compartir transparencia
                         </button>
+                        @if ($waText !== '')
+                            <button type="button" class="dash-link copy-text-btn" style="cursor:pointer; font-family:inherit; background:transparent;"
+                                    data-text="{{ $waText }}" title="Copia el mensaje para pegarlo en el grupo de WhatsApp">
+                                📋 Copiar texto
+                            </button>
+                        @endif
                         <a href="{{ route('transparency', $c->uuid) }}" target="_blank" class="dash-link">Ver página pública ↗</a>
                     </div>
                 </div>
@@ -131,6 +159,27 @@
 <x-layout.footer />
 
 <script>
+    async function copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (e) {
+            // Fallback para http sin permisos de portapapeles
+            const t = document.createElement('textarea');
+            t.value = text; document.body.appendChild(t); t.select();
+            document.execCommand('copy'); t.remove();
+        }
+    }
+
+    // Copiar el mensaje de transparencia para WhatsApp
+    document.querySelectorAll('.copy-text-btn').forEach(btn => {
+        const original = btn.textContent;
+        btn.addEventListener('click', async () => {
+            await copyToClipboard(btn.dataset.text);
+            btn.textContent = '✓ Texto copiado';
+            setTimeout(() => { btn.textContent = original; }, 2000);
+        });
+    });
+
     // Compartir el enlace público: menú nativo en celular, si no, copiar al portapapeles
     document.querySelectorAll('.share-btn').forEach(btn => {
         const original = btn.textContent;

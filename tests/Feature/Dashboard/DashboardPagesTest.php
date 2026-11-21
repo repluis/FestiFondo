@@ -82,6 +82,24 @@ class DashboardPagesTest extends TestCase
             ->assertSee(route('transparency', $uuid));
     }
 
+    public function test_home_has_copy_text_button_with_whatsapp_message(): void
+    {
+        $uuid = DB::table('fund_raisings')->where('status', true)->value('uuid');
+        $data = app(DashboardService::class)->transparency($uuid);
+
+        $html = $this->actingAs(User::first())->get('/')->assertOk()->assertSee('Copiar texto')->getContent();
+
+        preg_match('/class="dash-link copy-text-btn"[^>]*data-text="([^"]*)"/s', $html, $m);
+        $text = html_entity_decode($m[1] ?? '', ENT_QUOTES);
+
+        $this->assertStringContainsString('*Transparencia financiera*', $text);
+        $this->assertStringContainsString('*Total aportado: $'.number_format($data['total'], 2).'*', $text);
+        $this->assertStringContainsString($data['members'][0]['name'].' — $'.number_format($data['members'][0]['total'], 2), $text);
+        $this->assertStringContainsString(route('transparency', $uuid), $text);
+        $this->assertStringNotContainsString('Deuda', $text);
+        $this->assertStringContainsString("\n", $text, 'El mensaje debe conservar los saltos de línea');
+    }
+
     public function test_transparency_page_is_public_and_shows_only_names_and_paid_without_penalties(): void
     {
         $campaign = DB::table('fund_raisings')->where('status', true)->first(['oid', 'uuid']);

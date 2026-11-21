@@ -175,6 +175,33 @@ class ProcessChargesAndPenaltiesIntegrationTest extends TestCase
         $this->assertEquals(0.80, round($penalties->sum('balance'), 2));
     }
 
+    // ── Mora vieja ya pagada + cuota nueva impaga (caso real: Jean Molina) ───
+
+    public function test_real_db_old_penalty_from_a_paid_delinquency_does_not_start_mora_before_the_new_due_date(): void
+    {
+        $campaign  = $this->createCampaign('IT Campaign — old penalty', ['due_day' => 15, 'monthly_fee_amount' => 1.00, 'daily_penalty_rate' => 0.05]);
+        $memberOid = $this->createMember('IT-OLD-1');
+        $this->enroll($campaign->oid, $memberOid);
+
+        // Tuvo mora hasta el 01/07 (ese atraso ya lo pagó) y ahora debe la cuota que venció el 15/08
+        $this->createPenalty($memberOid, $campaign->oid, '2026-07-01', 16);
+        $this->createUnpaidFee($memberOid, $campaign->oid, '2026-08-15', 2026, 8);
+
+        Carbon::setTestNow('2026-08-20');
+        $this->runProcess($campaign->uuid);
+
+        $new = DB::table('penalties')
+            ->where('member_oid', $memberOid)
+            ->where('penalty_date', '>', '2026-07-01')
+            ->orderBy('penalty_date')
+            ->get(['penalty_date', 'days_overdue']);
+
+        // Solo del 16/08 al 20/08, con 1..5 días de atraso (antes intentaba desde el 02/07 con -44)
+        $this->assertSame(['2026-08-16', '2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20'],
+            $new->map(fn ($p) => substr((string) $p->penalty_date, 0, 10))->all());
+        $this->assertSame([1, 2, 3, 4, 5], $new->map(fn ($p) => (int) $p->days_overdue)->all());
+    }
+
     // ── 3. Recupera los días de mora que faltaron tras un vacío de uso ──────
 
     public function test_real_db_backfills_missed_penalty_days(): void

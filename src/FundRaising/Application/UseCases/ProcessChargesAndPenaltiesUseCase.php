@@ -139,10 +139,19 @@ class ProcessChargesAndPenaltiesUseCase
                         $pendingBalance = $this->repository->getPendingFeeBalance($memberOid, $memberCampaignOid);
 
                         if ($pendingBalance > 0) {
+                            // La mora arranca el día después del vencimiento de la cuota impaga más antigua.
+                            // Si ya hay moras registradas, se continúa desde la siguiente a la última,
+                            // pero nunca antes del vencimiento: una mora vieja (de un atraso ya pagado)
+                            // no debe hacer que se cobren días en que no se debía nada.
+                            $firstPenaltyDay    = $oldestDueDate->copy()->addDay();
                             $lastPenaltyDateRaw = $this->repository->getLastPenaltyDate($memberOid, $memberCampaignOid);
-                            $cursor = $lastPenaltyDateRaw
-                                ? Carbon::parse($lastPenaltyDateRaw)->startOfDay()->addDay()
-                                : $oldestDueDate->copy()->addDay();
+                            $cursor = $firstPenaltyDay;
+                            if ($lastPenaltyDateRaw) {
+                                $afterLast = Carbon::parse($lastPenaltyDateRaw)->startOfDay()->addDay();
+                                if ($afterLast->greaterThan($cursor)) {
+                                    $cursor = $afterLast;
+                                }
+                            }
 
                             Log::info('[ProcessChargesAndPenaltiesUseCase] Step 7 — Generating daily penalties', [
                                 'member_oid'      => $memberOid,
@@ -216,7 +225,14 @@ class ProcessChargesAndPenaltiesUseCase
             ];
 
         } catch (\Throwable $e) {
-            $this->repository->failProcessExecution($processId, $e->getMessage());
+            Log::error('[ProcessChargesAndPenaltiesUseCase] Failed', ['error' => $e->getMessage()]);
+            // Dentro de una transacción de Postgres ya abortada esta escritura también falla;
+            // no debe tapar el error original.
+            try {
+                $this->repository->failProcessExecution($processId, $e->getMessage());
+            } catch (\Throwable) {
+                // se ignora: la transacción se revierte completa y el error real se relanza
+            }
             throw $e;
         }
     }

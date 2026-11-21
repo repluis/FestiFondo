@@ -34,9 +34,18 @@ class DashboardService
         $standings  = $this->standings->execute();
         $collection = $this->collection->execute();
 
+        $campaigns = $this->campaigns->execute();
+
+        // Datos de transparencia por campaña, para el botón "Copiar texto" (WhatsApp)
+        $transparency = [];
+        foreach ($campaigns as $c) {
+            $transparency[$c->uuid] = $this->transparency->execute($c->uuid);
+        }
+
         return [
             'kpis'            => $this->kpis($standings, $collection),
-            'campaigns'       => $this->campaigns->execute(),
+            'campaigns'       => $campaigns,
+            'transparency'    => $transparency,
             'topPayers'       => array_slice($standings['top_payers'], 0, 5),
             'topDebtors'      => array_slice($standings['top_debtors'], 0, 5),
             'recentPayments'  => $this->recentPayments->execute(8),
