@@ -83,6 +83,7 @@ Usuario creado por el seed: `test@example.com` / `password`. **Cámbialo en prod
 | Módulos `v1/financial/*` y `v1/reports/*` | Redirige a `/login` | Acceso completo |
 | `/v1/games/secret-santa` | Aviso: "¿Ya te llegó tu enlace?" | Panel del sorteo |
 | `/v1/games/secret-santa/r/{token}` | Ve su amigo secreto (una vez) | Igual |
+| `/transparencia/{uuid}` | Nombres y total pagado sin mora | Igual |
 
 ---
 
@@ -97,6 +98,7 @@ Cada módulo registra sus rutas en `src/{Módulo}/Infrastructure/Http/routes/web
 | GET | `/` | `home` | Portada (invitado) o resumen (usuario) |
 | GET / POST | `/login` | `auth.login`, `auth.login.store` | Inicio de sesión |
 | POST | `/logout` | `auth.logout` | Cerrar sesión |
+| GET | `/transparencia/{uuid}` | `transparency` | Transparencia financiera de una campaña: nombres y total pagado sin mora |
 | GET | `/up` | — | Health check (usado por Render/Railway) |
 | GET | `/run-seeds?token=` | — | Carga de datos iniciales (protegida por `SEED_TOKEN`) |
 | GET | `/v1/games/secret-santa` | `games.secret-santa` | Página del Amigo Secreto |
@@ -108,7 +110,7 @@ Cada módulo registra sus rutas en `src/{Módulo}/Infrastructure/Http/routes/web
 |------|---------|-------------|
 | Dashboard | `/dashboard` | Gráficas, rankings y estado de cuenta |
 | Campañas | `/v1/financial/campaigns` | CRUD, inscribir/quitar miembros, transacciones por miembro |
-| Recaudación | `/v1/financial/fund-raising` | Vista general y `POST /process-charges` (generar cuotas y mora) |
+| Recaudación | `/v1/financial/fund-raising` | Vista general; `POST /process-charges/preview` (vista previa), `POST /process-charges` (guardar), `POST /executions/{id}/revert` (restablecer) |
 | Transferencias | `/v1/financial/fund-transfers` | CRUD de transferencias |
 | Miembros | `/v1/financial/members` | CRUD y activación |
 | Transacciones | `/v1/financial/transactions` | Registro, `POST /apply-payment`, anulación |
@@ -134,6 +136,17 @@ Cada campaña (`fund_raisings`) define:
 
 1. **Cuota del mes**: la crea solo cuando ya llegó el día de vencimiento, y nunca la duplica.
 2. **Mora**: si el miembro tiene cuotas vencidas sin pagar, crea **una mora por cada día** desde el día siguiente al vencimiento de la cuota más antigua (o desde el día siguiente a la última mora registrada) hasta hoy. Así no se pierden días aunque el proceso no se ejecute a diario.
+
+### Vista previa, guardado y restablecer
+
+En el detalle de una campaña, **⟳ Actualizar Cobros y Moras** funciona en dos pasos:
+
+1. **Vista previa** (`POST .../process-charges/preview`): ejecuta el proceso real dentro de una transacción y hace **ROLLBACK** al final. Muestra cuántas cuotas y moras se crearían, por miembro y con montos, sin guardar nada.
+2. **💾 Guardar** (`POST .../process-charges`): ejecuta el proceso en **una sola transacción**. Si algo falla a mitad de camino, se revierte todo y no queda nada a medias.
+
+**↺ Restablecer última actualización** (`POST .../executions/{id}/revert`) deja la base como estaba antes. Funciona porque el proceso solo *agrega* filas (nunca modifica las existentes) y cada cuota/mora queda marcada con `generated_by_process_oid`. Borra exactamente esas filas y marca la ejecución como `reverted`. Por seguridad solo se permite:
+- sobre la **última** ejecución completada de esa campaña;
+- si **ninguna** de sus cuotas o moras recibió un pago (si las hay, primero hay que anular esos pagos).
 
 ### Cómo se aplica un pago (`ApplyPaymentUseCase`)
 
@@ -171,6 +184,16 @@ Definiciones usadas:
 | Pagos históricos | Parte de un pago que no tiene desglose cuota/mora (pagos cargados antes de que existiera el reparto automático) |
 
 Las gráficas están hechas con HTML/CSS, sin librerías de JavaScript.
+
+### Transparencia financiera
+
+En el Inicio, cada campaña tiene el botón **🤝 Compartir transparencia**. En el celular abre el menú de compartir; en la computadora copia el enlace. El enlace lleva a `/transparencia/{uuid-de-la-campaña}`, una página pública (sin login ni menús del sistema) que muestra:
+
+- el nombre de cada integrante activo de la campaña;
+- el total que ha pagado **sin contar la mora** (`monto − aplicado a mora` de sus pagos válidos en esa campaña);
+- el total aportado.
+
+No muestra deudas, cuotas pendientes ni mora. El UUID de la campaña no se puede adivinar, así que solo la ve quien recibe el enlace.
 
 ---
 

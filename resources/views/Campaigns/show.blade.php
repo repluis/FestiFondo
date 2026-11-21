@@ -140,6 +140,11 @@
         $ranToday = $lastExec
             && \Carbon\Carbon::parse($lastExec->execution_date)->isToday()
             && $lastExec->execution_status === 'completed';
+        $isReverted = $lastExec && $lastExec->execution_status === 'reverted';
+        // Se puede restablecer la última ejecución completada que creó algo
+        $canRevert  = $lastExec
+            && $lastExec->execution_status === 'completed'
+            && ($lastExec->fees_generated + $lastExec->penalties_generated) > 0;
     @endphp
     <div style="margin-bottom:1.5rem;padding:1.25rem 1.5rem;
         background:linear-gradient(135deg,var(--color-primary-subtle),var(--color-bg-elevated));
@@ -163,6 +168,11 @@
                             ✓ Already ran today
                         </span>
                     @endif
+                    @if($isReverted)
+                        <span style="color:var(--color-warning);font-weight:600;margin-left:.5rem;">
+                            ↺ Restablecida (se deshicieron sus cuotas y moras)
+                        </span>
+                    @endif
                 </p>
             @else
                 <p style="font-size:.85rem;color:var(--color-text-muted);">
@@ -170,10 +180,18 @@
                 </p>
             @endif
         </div>
-        <button class="btn btn-primary" id="btn-process" style="white-space:nowrap;"
-            onclick="{{ $ranToday ? 'openModal(\'modal-rerun\')' : 'runProcess()' }}">
-            ⟳ Actualizar Cobros y Moras
-        </button>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            @if($canRevert)
+                <button class="btn btn-ghost" id="btn-revert" style="white-space:nowrap;"
+                    onclick="openModal('modal-revert')"
+                    title="Deshace la última actualización: borra las cuotas y moras que creó">
+                    ↺ Restablecer última actualización
+                </button>
+            @endif
+            <button class="btn btn-primary" id="btn-process" style="white-space:nowrap;" onclick="previewProcess()">
+                ⟳ Actualizar Cobros y Moras
+            </button>
+        </div>
     </div>
 
     {{-- ── Members table ───────────────────────────────────────────────────── --}}
@@ -375,19 +393,42 @@
     </div>
 </div>
 
-{{-- Re-run confirm --}}
-<div class="modal-overlay" id="modal-rerun">
-    <div class="modal" style="max-width:380px;">
-        <h3>Already Ran Today</h3>
-        <p style="color:var(--color-text-secondary);margin-bottom:1.5rem;font-size:.9rem;">
-            This process already ran today. Running again is safe — no duplicate fees or penalties will be created. Continue?
+{{-- Vista previa de cobros y moras (no guarda nada hasta presionar "Guardar") --}}
+<div class="modal-overlay" id="modal-preview">
+    <div class="modal" style="max-width:640px;">
+        <h3>Vista previa: Actualizar Cobros y Moras</h3>
+        <p style="color:var(--color-text-secondary);font-size:.85rem;margin:-.6rem 0 1rem;">
+            Esto es lo que se va a crear. <strong>Todavía no se guardó nada.</strong>
         </p>
-        <div style="display:flex;gap:.6rem;justify-content:flex-end;">
-            <button class="btn btn-ghost" onclick="closeModal('modal-rerun')">Cancel</button>
-            <button class="btn btn-primary" onclick="closeModal('modal-rerun');runProcess()">Run Anyway</button>
+        <div id="preview-body"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.25rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-preview')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-process" onclick="runProcess()">💾 Guardar</button>
         </div>
     </div>
 </div>
+
+{{-- Restablecer última actualización --}}
+@if($canRevert ?? false)
+<div class="modal-overlay" id="modal-revert">
+    <div class="modal" style="max-width:420px;">
+        <h3>↺ Restablecer última actualización</h3>
+        <p style="color:var(--color-text-secondary);margin-bottom:1rem;font-size:.9rem;line-height:1.6;">
+            Se borrarán las <strong>{{ $lastExec->fees_generated }} cuota(s)</strong> y
+            <strong>{{ $lastExec->penalties_generated }} mora(s)</strong> que creó la actualización del
+            <strong>{{ \Carbon\Carbon::parse($lastExec->execution_date)->format('d/m/Y') }}</strong>,
+            y todo quedará como estaba antes.
+        </p>
+        <p style="color:var(--color-text-muted);margin-bottom:1.5rem;font-size:.8rem;">
+            Si alguna de esas cuotas o moras ya recibió un pago, no se podrá restablecer.
+        </p>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-revert')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirm-revert" onclick="revertProcess({{ $lastExec->id }})">Sí, restablecer</button>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Process Result --}}
 <div class="modal-overlay" id="modal-process-result">
@@ -458,6 +499,8 @@ const AVAIL_URL  = '{{ route("campaigns.members.available",$campaign["uuid"]) }}
 const REMOVE_BASE= '{{ url("v1/financial/campaigns/".$campaign["uuid"]."/members") }}';
 const PAY_URL    = '{{ route("transactions.apply-payment") }}';
 const PROCESS_URL= '{{ route("fund-raising.process-charges") }}';
+const PREVIEW_URL= '{{ route("fund-raising.process-charges.preview") }}';
+const REVERT_BASE= '{{ url("v1/financial/fund-raising/executions") }}';
 
 let _avail = [], _rmUuid = null;
 let _payMbr = null, _payTotal = 0, _payFees = 0, _payPen = 0, _payCmp = null;
@@ -498,10 +541,76 @@ async function activateCampaign() {
     }
 }
 
-// ── Process Charges ──────────────────────────────────────────────────────────
-async function runProcess() {
+// ── Process Charges: 1) vista previa → 2) guardar ───────────────────────────
+const money = v => '$' + Number(v || 0).toFixed(2);
+const fmtD  = s => s ? s.split('-').reverse().join('/') : '';
+
+async function previewProcess() {
     const btn = document.getElementById('btn-process');
-    btn.disabled = true; btn.textContent = 'Processing…';
+    btn.disabled = true; btn.textContent = 'Calculando…';
+    try {
+        const r = await fetch(PREVIEW_URL, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
+            body: JSON.stringify({ campaign_uuid: CAMP_UUID }),
+        });
+        const j = await r.json();
+        if (!r.ok || !j.status) { showToast(j.message || 'No se pudo generar la vista previa.', 'error'); return; }
+
+        const d = j.data, rows = d.details || [];
+        const nothing = (d.fees_generated + d.penalties_generated) === 0;
+        document.getElementById('preview-body').innerHTML = nothing
+            ? `<div style="padding:1.25rem;text-align:center;color:var(--color-success);background:var(--color-success-bg);border-radius:var(--radius-md);">
+                   ✓ Todo está al día. No hay cuotas ni moras nuevas para crear.
+               </div>`
+            : `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:1rem;">
+                   <div class="stat-card"><div class="lbl">Cuotas nuevas</div><div class="val" style="font-size:1.2rem;">${d.fees_generated} · ${money(d.fees_amount)}</div></div>
+                   <div class="stat-card"><div class="lbl">Moras nuevas</div><div class="val" style="font-size:1.2rem;color:var(--color-error);">${d.penalties_generated} · ${money(d.penalties_amount)}</div></div>
+                   <div class="stat-card"><div class="lbl">Miembros afectados</div><div class="val" style="font-size:1.2rem;">${rows.length}</div></div>
+               </div>
+               <div style="max-height:300px;overflow:auto;border:1px solid var(--color-border);border-radius:var(--radius-md);">
+                   <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+                       <thead><tr style="text-align:left;color:var(--color-text-muted);">
+                           <th style="padding:.55rem .7rem;">Miembro</th><th style="padding:.55rem .7rem;text-align:right;">Cuotas</th>
+                           <th style="padding:.55rem .7rem;text-align:right;">Moras</th><th style="padding:.55rem .7rem;">Días de mora</th>
+                       </tr></thead>
+                       <tbody>${rows.map(x => `
+                           <tr style="border-top:1px solid var(--color-border);">
+                               <td style="padding:.5rem .7rem;color:var(--color-text-primary);">${x.member_name}</td>
+                               <td style="padding:.5rem .7rem;text-align:right;">${x.fees_count ? x.fees_count + ' · ' + money(x.fees_amount) : '—'}</td>
+                               <td style="padding:.5rem .7rem;text-align:right;color:var(--color-error);">${x.penalties_count ? x.penalties_count + ' · ' + money(x.penalties_amount) : '—'}</td>
+                               <td style="padding:.5rem .7rem;color:var(--color-text-muted);">${x.penalties_count ? fmtD(x.penalties_from) + ' → ' + fmtD(x.penalties_to) : ''}</td>
+                           </tr>`).join('')}
+                       </tbody>
+                   </table>
+               </div>`;
+
+        const save = document.getElementById('btn-save-process');
+        save.style.display = nothing ? 'none' : '';
+        openModal('modal-preview');
+    } catch { showToast('Error de conexión.', 'error'); }
+    finally { btn.disabled = false; btn.textContent = '⟳ Actualizar Cobros y Moras'; }
+}
+
+async function revertProcess(id) {
+    const btn = document.getElementById('btn-confirm-revert');
+    btn.disabled = true; btn.textContent = 'Restableciendo…';
+    try {
+        const r = await fetch(`${REVERT_BASE}/${id}/revert`, {
+            method: 'POST',
+            headers: {'X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
+        });
+        const j = await r.json();
+        closeModal('modal-revert');
+        showToast(j.message || (r.ok ? 'Restablecido.' : 'No se pudo restablecer.'), r.ok && j.status ? 'success' : 'error');
+        if (r.ok && j.status) setTimeout(() => location.reload(), 1500);
+    } catch { showToast('Error de conexión. No se modificó nada.', 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Sí, restablecer'; }
+}
+
+async function runProcess() {
+    const btn = document.getElementById('btn-save-process');
+    btn.disabled = true; btn.textContent = 'Guardando…';
     try {
         const r = await fetch(PROCESS_URL, {
             method: 'POST',
@@ -509,21 +618,23 @@ async function runProcess() {
             body: JSON.stringify({ campaign_uuid: CAMP_UUID }),
         });
         const j = await r.json();
+        closeModal('modal-preview');
         if (r.ok && j.status) {
             const d = j.data;
             document.getElementById('process-result-body').innerHTML =
-                `<strong style="color:var(--color-success);">Process completed ✓</strong><br>
-                Members processed: <strong>${d.members_processed ?? 0}</strong><br>
-                Fees generated: <strong>${d.fees_generated ?? 0}</strong><br>
-                Penalties generated: <strong>${d.penalties_generated ?? 0}</strong>`;
+                `<strong style="color:var(--color-success);">Guardado ✓</strong><br>
+                Miembros procesados: <strong>${d.members_processed ?? 0}</strong><br>
+                Cuotas creadas: <strong>${d.fees_generated ?? 0}</strong> (${money(d.fees_amount)})<br>
+                Moras creadas: <strong>${d.penalties_generated ?? 0}</strong> (${money(d.penalties_amount)})<br>
+                <span style="font-size:.8rem;color:var(--color-text-muted);">Si algo no está bien, usa "↺ Restablecer última actualización".</span>`;
             openModal('modal-process-result');
         } else if (r.status === 409) {
-            showToast(j.message || 'Process locked.', 'error');
+            showToast(j.message || 'El proceso ya se está ejecutando.', 'error');
         } else {
-            showToast(j.message || 'Error running process.', 'error');
+            showToast((j.message || 'Error al guardar.') + ' No se guardó nada.', 'error');
         }
-    } catch { showToast('Connection error.', 'error'); }
-    finally { btn.disabled = false; btn.textContent = '⟳ Actualizar Cobros y Moras'; }
+    } catch { showToast('Error de conexión. No se guardó nada.', 'error'); }
+    finally { btn.disabled = false; btn.textContent = '💾 Guardar'; }
 }
 
 // ── Add Member ───────────────────────────────────────────────────────────────

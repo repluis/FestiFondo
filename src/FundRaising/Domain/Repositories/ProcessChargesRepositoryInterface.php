@@ -26,4 +26,17 @@ interface ProcessChargesRepositoryInterface
 
     public function completeProcessExecution(int $id, array $data): void;
     public function failProcessExecution(int $id, string $error): void;
+
+    // ── Restablecer una ejecución ────────────────────────────────────────────
+    public function getProcessExecutionById(int $id): ?object;
+    public function getLatestExecutionByName(string $processName): ?object;
+
+    /** Cuotas o moras generadas por la ejecución que ya recibieron algún pago. */
+    public function countPaidGeneratedRows(int $processId): int;
+
+    /** @return array{fees: int, penalties: int} Filas borradas */
+    public function deleteGeneratedRows(int $processId): array;
+
+    /** @param array{fees: int, penalties: int} $deleted */
+    public function markExecutionReverted(int $id, int $revertedByOid, array $deleted): void;
 }

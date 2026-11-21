@@ -73,7 +73,7 @@ class EloquentProcessChargesRepository implements ProcessChargesRepositoryInterf
             $query->where('fr.uuid', $campaignUuid);
         }
 
-        return $query->select(['m.id', 'm.oid', 'cm.campaign_oid'])->distinct()->get()->all();
+        return $query->select(['m.id', 'm.oid', 'm.first_name', 'm.last_name', 'cm.campaign_oid'])->distinct()->get()->all();
     }
 
     public function getCampaignFeeRates(string $uuid): array
@@ -150,6 +150,61 @@ class EloquentProcessChargesRepository implements ProcessChargesRepositoryInterf
         DB::table('process_executions')->where('id', $id)->update(
             array_merge($data, ['updated_at' => now()])
         );
+    }
+
+    public function getProcessExecutionById(int $id): ?object
+    {
+        return DB::table('process_executions')->where('id', $id)->first();
+    }
+
+    public function getLatestExecutionByName(string $processName): ?object
+    {
+        return DB::table('process_executions')
+            ->where('process_name', $processName)
+            ->orderByDesc('execution_date')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    public function countPaidGeneratedRows(int $processId): int
+    {
+        $fees = DB::table('monthly_fees')
+            ->where('generated_by_process_oid', $processId)
+            ->where(fn ($q) => $q->where('amount_paid', '>', 0)->orWhere('fee_status', '!=', 'pending'))
+            ->count();
+
+        $penalties = DB::table('penalties')
+            ->where('generated_by_process_oid', $processId)
+            ->where(fn ($q) => $q->where('amount_paid', '>', 0)->orWhere('penalty_status', '!=', 'pending'))
+            ->count();
+
+        return $fees + $penalties;
+    }
+
+    public function deleteGeneratedRows(int $processId): array
+    {
+        return [
+            'fees'      => DB::table('monthly_fees')->where('generated_by_process_oid', $processId)->delete(),
+            'penalties' => DB::table('penalties')->where('generated_by_process_oid', $processId)->delete(),
+        ];
+    }
+
+    public function markExecutionReverted(int $id, int $revertedByOid, array $deleted): void
+    {
+        $execution = $this->getProcessExecutionById($id);
+        $metadata  = json_decode($execution->metadata ?? '[]', true) ?: [];
+        $metadata['reverted'] = [
+            'by_oid'            => $revertedByOid,
+            'at'                => now()->toDateTimeString(),
+            'fees_deleted'      => $deleted['fees'],
+            'penalties_deleted' => $deleted['penalties'],
+        ];
+
+        DB::table('process_executions')->where('id', $id)->update([
+            'execution_status' => 'reverted',
+            'metadata'         => json_encode($metadata),
+            'updated_at'       => now(),
+        ]);
     }
 
     public function failProcessExecution(int $id, string $error): void

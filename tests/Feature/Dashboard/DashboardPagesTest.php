@@ -72,6 +72,56 @@ class DashboardPagesTest extends TestCase
             ->assertSee('Estado de cuenta de todos los miembros');
     }
 
+    public function test_home_has_share_transparency_button(): void
+    {
+        $uuid = DB::table('fund_raisings')->where('status', true)->value('uuid');
+
+        $this->actingAs(User::first())
+            ->get('/')
+            ->assertSee('Compartir transparencia')
+            ->assertSee(route('transparency', $uuid));
+    }
+
+    public function test_transparency_page_is_public_and_shows_only_names_and_paid_without_penalties(): void
+    {
+        $campaign = DB::table('fund_raisings')->where('status', true)->first(['oid', 'uuid']);
+
+        // Un miembro de la campaña y lo que pagó sin mora, calculado directo en la base
+        $member = DB::table('campaign_members as cm')->join('members as m', 'm.oid', '=', 'cm.member_oid')
+            ->where('cm.campaign_oid', $campaign->oid)->where('cm.status', true)->where('m.status', true)
+            ->first(['m.oid', 'm.first_name', 'm.last_name']);
+        $expected = (float) DB::table('transactions')
+            ->where('campaign_oid', $campaign->oid)->where('member_oid', $member->oid)
+            ->where('transaction_type', 'income')->where('status', true)
+            ->sum(DB::raw('amount - COALESCE(applied_to_penalties, 0)'));
+
+        $this->get(route('transparency', $campaign->uuid))   // sin sesión
+            ->assertOk()
+            ->assertSee('Transparencia financiera')
+            ->assertSee($member->first_name.' '.$member->last_name)
+            ->assertSee('$'.number_format($expected, 2))
+            ->assertDontSee('Deuda')
+            ->assertDontSee('Cuotas pendientes')
+            ->assertDontSee('Financiero');                      // sin menú del sistema
+    }
+
+    public function test_transparency_excludes_penalty_payments(): void
+    {
+        $data = app(DashboardService::class)->transparency(DB::table('fund_raisings')->where('status', true)->value('uuid'));
+
+        $campaignOid = DB::table('fund_raisings')->where('status', true)->value('oid');
+        $gross = (float) DB::table('transactions')->where('campaign_oid', $campaignOid)->where('transaction_type', 'income')->where('status', true)->sum('amount');
+        $toPen = (float) DB::table('transactions')->where('campaign_oid', $campaignOid)->where('transaction_type', 'income')->where('status', true)->sum('applied_to_penalties');
+
+        $this->assertEqualsWithDelta($gross - $toPen, $data['total'], 0.001);
+    }
+
+    public function test_transparency_unknown_campaign_returns_404(): void
+    {
+        $this->get('/transparencia/00000000-0000-0000-0000-000000000000')->assertNotFound();
+        $this->get('/transparencia/no-es-uuid')->assertNotFound();
+    }
+
     public function test_figures_match_the_database(): void
     {
         $data = app(DashboardService::class)->dashboard();

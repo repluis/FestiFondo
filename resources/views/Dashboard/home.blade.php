@@ -64,6 +64,14 @@
                             · faltan ${{ number_format($c->remaining(), 2) }}
                         </span>
                     </div>
+                    <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.85rem;">
+                        <button type="button" class="dash-link primary share-btn" style="cursor:pointer; font-family:inherit;"
+                                data-url="{{ route('transparency', $c->uuid) }}"
+                                data-title="Transparencia financiera — {{ ucfirst(str_replace('_', ' ', $c->name)) }}">
+                            🤝 Compartir transparencia
+                        </button>
+                        <a href="{{ route('transparency', $c->uuid) }}" target="_blank" class="dash-link">Ver página pública ↗</a>
+                    </div>
                 </div>
             @empty
                 <div class="dash-empty">No hay campañas registradas.</div>
@@ -121,6 +129,29 @@
 </div>
 
 <x-layout.footer />
+
+<script>
+    // Compartir el enlace público: menú nativo en celular, si no, copiar al portapapeles
+    document.querySelectorAll('.share-btn').forEach(btn => {
+        const original = btn.textContent;
+        btn.addEventListener('click', async () => {
+            const { url, title } = btn.dataset;
+            if (navigator.share) {
+                try { await navigator.share({ title, text: title, url }); return; }
+                catch (e) { if (e.name === 'AbortError') return; }
+            }
+            try {
+                await navigator.clipboard.writeText(url);
+            } catch (e) {
+                const t = document.createElement('textarea');
+                t.value = url; document.body.appendChild(t); t.select();
+                document.execCommand('copy'); t.remove();
+            }
+            btn.textContent = '✓ Enlace copiado';
+            setTimeout(() => { btn.textContent = original; }, 2000);
+        });
+    });
+</script>
 
 </body>
 </html>

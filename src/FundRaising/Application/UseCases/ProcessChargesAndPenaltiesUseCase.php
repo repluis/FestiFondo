@@ -88,10 +88,21 @@ class ProcessChargesAndPenaltiesUseCase
 
             $feesGenerated      = 0;
             $penaltiesGenerated = 0;
+            $details            = []; // detalle por miembro (para la vista previa)
 
             foreach ($members as $member) {
                 $memberOid      = $member->oid ?? $member->id;
                 $memberCampaignOid = $member->campaign_oid;
+                $detail = [
+                    'member_oid'       => (int) $memberOid,
+                    'member_name'      => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: "#{$memberOid}",
+                    'fees_count'       => 0,
+                    'fees_amount'      => 0.0,
+                    'penalties_count'  => 0,
+                    'penalties_amount' => 0.0,
+                    'penalties_from'   => null,
+                    'penalties_to'     => null,
+                ];
 
                 Log::info('[ProcessChargesAndPenaltiesUseCase] Step 6 — Generating monthly fee', [
                     'member_oid' => $memberOid,
@@ -115,6 +126,8 @@ class ProcessChargesAndPenaltiesUseCase
                         'updated_at'               => now(),
                     ]);
                     $feesGenerated++;
+                    $detail['fees_count']++;
+                    $detail['fees_amount'] += $feeAmount;
                 }
 
                 $oldestDueDateRaw = $this->repository->getOldestUnpaidFeeDueDate($memberOid, $memberCampaignOid);
@@ -158,11 +171,21 @@ class ProcessChargesAndPenaltiesUseCase
                                         'updated_at'               => now(),
                                     ]);
                                     $penaltiesGenerated++;
+                                    $detail['penalties_count']++;
+                                    $detail['penalties_amount'] += $dailyRate;
+                                    $detail['penalties_from'] ??= $cursor->toDateString();
+                                    $detail['penalties_to']    = $cursor->toDateString();
                                 }
                                 $cursor->addDay();
                             }
                         }
                     }
+                }
+
+                if ($detail['fees_count'] > 0 || $detail['penalties_count'] > 0) {
+                    $detail['fees_amount']      = round($detail['fees_amount'], 2);
+                    $detail['penalties_amount'] = round($detail['penalties_amount'], 2);
+                    $details[] = $detail;
                 }
             }
 
@@ -182,10 +205,14 @@ class ProcessChargesAndPenaltiesUseCase
             ]);
 
             return [
+                'process_id'          => $processId,
                 'members_processed'   => count($members),
                 'fees_generated'      => $feesGenerated,
                 'penalties_generated' => $penaltiesGenerated,
+                'fees_amount'         => round(array_sum(array_column($details, 'fees_amount')), 2),
+                'penalties_amount'    => round(array_sum(array_column($details, 'penalties_amount')), 2),
                 'period'              => $periodYear . '-' . str_pad($periodMonth, 2, '0', STR_PAD_LEFT),
+                'details'             => $details,
             ];
 
         } catch (\Throwable $e) {

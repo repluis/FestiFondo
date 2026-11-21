@@ -106,6 +106,46 @@ class EloquentDashboardRepository implements DashboardRepositoryInterface
             ->all();
     }
 
+    public function getCampaignTransparency(string $campaignUuid): ?array
+    {
+        $campaign = DB::table('fund_raisings')
+            ->where('uuid', $campaignUuid)
+            ->where('status', true)
+            ->first(['oid', 'name']);
+
+        if (!$campaign) {
+            return null;
+        }
+
+        // Lo pagado en esta campaña menos lo que se fue a mora
+        $paid = DB::table('transactions')
+            ->where('campaign_oid', $campaign->oid)
+            ->where('transaction_type', 'income')
+            ->where('status', true)
+            ->groupBy('member_oid')
+            ->select([
+                'member_oid',
+                DB::raw('SUM(amount - COALESCE(applied_to_penalties, 0)) as total'),
+            ]);
+
+        $members = DB::table('campaign_members as cm')
+            ->join('members as m', 'm.oid', '=', 'cm.member_oid')
+            ->leftJoinSub($paid, 'p', 'p.member_oid', '=', 'm.oid')
+            ->where('cm.campaign_oid', $campaign->oid)
+            ->where('cm.status', true)
+            ->where('m.status', true)
+            ->orderBy('m.first_name')
+            ->orderBy('m.last_name')
+            ->get(['m.first_name', 'm.last_name', 'p.total'])
+            ->map(fn ($r) => [
+                'name'  => trim($r->first_name . ' ' . $r->last_name),
+                'total' => max(0.0, round((float) ($r->total ?? 0), 2)),
+            ])
+            ->all();
+
+        return ['campaign' => $campaign->name, 'members' => $members];
+    }
+
     public function getRecentPayments(int $limit): array
     {
         return DB::table('transactions as t')

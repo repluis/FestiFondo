@@ -3,6 +3,7 @@
 namespace Src\Dashboard\Application\Services;
 
 use Src\Dashboard\Application\UseCases\GetCampaignsProgressUseCase;
+use Src\Dashboard\Application\UseCases\GetCampaignTransparencyUseCase;
 use Src\Dashboard\Application\UseCases\GetCollectionStatsUseCase;
 use Src\Dashboard\Application\UseCases\GetMemberStandingsUseCase;
 use Src\Dashboard\Application\UseCases\GetRecentPaymentsUseCase;
@@ -20,7 +21,13 @@ class DashboardService
         private GetCollectionStatsUseCase   $collection,
         private GetCampaignsProgressUseCase $campaigns,
         private GetRecentPaymentsUseCase    $recentPayments,
+        private GetCampaignTransparencyUseCase $transparency,
     ) {}
+
+    public function transparency(string $campaignUuid): ?array
+    {
+        return $this->transparency->execute($campaignUuid);
+    }
 
     public function home(): array
     {

@@ -4,6 +4,7 @@ namespace Src\Dashboard\Infrastructure\Http\Controllers;
 
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Src\Dashboard\Application\Services\DashboardService;
 
@@ -19,6 +20,16 @@ class DashboardController extends Controller
         }
 
         return view('Dashboard.home', $this->service->home());
+    }
+
+    /** Transparencia financiera pública de una campaña (nombres y total pagado sin mora). */
+    public function transparency(string $uuid): View
+    {
+        $data = Str::isUuid($uuid) ? $this->service->transparency($uuid) : null;
+
+        abort_if($data === null, 404);
+
+        return view('Dashboard.transparency', $data);
     }
 
     /** Dashboard: gráficas y tablas completas (solo usuarios con sesión). */

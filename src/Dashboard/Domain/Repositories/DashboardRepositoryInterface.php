@@ -26,4 +26,11 @@ interface DashboardRepositoryInterface
      * @return array<int, array{date: string, member: string, amount: float, to_fees: float, to_penalties: float, campaign: ?string}>
      */
     public function getRecentPayments(int $limit): array;
+
+    /**
+     * Transparencia de una campaña: cada integrante con lo que pagó SIN contar la mora.
+     *
+     * @return array{campaign: string, members: array<int, array{name: string, total: float}>}|null
+     */
+    public function getCampaignTransparency(string $campaignUuid): ?array;
 }
