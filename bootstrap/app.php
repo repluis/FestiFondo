@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         \Src\Transactions\Infrastructure\Providers\TransactionServiceProvider::class,
         \Src\Reports\Infrastructure\Providers\ReportsServiceProvider::class,
         \Src\Games\Infrastructure\Providers\GamesServiceProvider::class,
+        \Src\Dashboard\Infrastructure\Providers\DashboardServiceProvider::class,
     ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

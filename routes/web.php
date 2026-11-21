@@ -9,13 +9,7 @@ use Src\FundRaising\Application\Services\FundRaisingService;
 use Src\Members\Application\Services\MembersService;
 use Src\Transactions\Application\Services\TransactionService;
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware('auth')->name('dashboard');
+// "/" y "/dashboard" se definen en el módulo Dashboard (src/Dashboard/Infrastructure/Http/routes/web.php)
 
 Route::get('/run-seeds', function (Request $request) {
     $token = env('SEED_TOKEN');

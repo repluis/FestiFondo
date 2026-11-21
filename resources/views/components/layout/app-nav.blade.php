@@ -90,6 +90,7 @@
     $menus = [
         [
             'label' => 'Financiero',
+            'auth'  => true,
             'items' => [
                 ['url' => '/v1/financial/fund-raising',   'label' => 'Recaudación', 'icon' => '🎯'],
                 ['url' => '/v1/financial/campaigns',      'label' => 'Campañas',    'icon' => '📣'],
@@ -98,13 +99,16 @@
         ],
         [
             'label' => 'Administrativo',
+            'auth'  => true,
             'items' => [
                 ['url' => '/v1/financial/members', 'label' => 'Miembros', 'icon' => '👥'],
             ],
         ],
         [
             'label' => 'Reportes',
+            'auth'  => true,
             'items' => [
+                ['url' => '/dashboard',               'label' => 'Dashboard',     'icon' => '📊'],
                 ['url' => '/v1/reports/transactions', 'label' => 'Transacciones', 'icon' => '📋'],
             ],
         ],
@@ -115,6 +119,9 @@
             ],
         ],
     ];
+
+    // Los invitados solo ven las secciones públicas (Inicio y Juegos)
+    $menus = array_values(array_filter($menus, fn ($m) => empty($m['auth']) || auth()->check()));
 @endphp
 
 <nav class="ff-nav">

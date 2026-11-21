@@ -4,7 +4,7 @@
 
 - **Back-end:** Laravel 13, PHP 8.3, arquitectura DDD por módulos
 - **Front-end:** Blade + Tailwind CSS 4, Vite como bundler
-- **Base de datos:** SQLite (desarrollo), PostgreSQL (producción)
+- **Base de datos:** PostgreSQL (local y producción)
 - **Autoload namespace raíz:** `Src\` → carpeta `src/`
 
 ---
@@ -61,7 +61,7 @@ src/
 - El `EloquentFundXxxRepository` implementa la interface del Domain.
 - El controller extiende `Illuminate\Routing\Controller` e inyecta el Service.
 - Las rutas web se registran bajo el prefijo `v1/{area}/{module-kebab}`.
-- Las rutas **no llevan** middleware `auth` hasta que el sistema de login esté listo.
+- Las rutas privadas llevan `->middleware(['web', 'auth'])`. Solo son públicas: `/`, `/login`, `/logout`, `/up`, `/run-seeds` y las páginas del Amigo Secreto para participantes (ver README → Rutas).
 
 ### ServiceProvider
 - Carga las rutas propias del módulo en `boot()`:

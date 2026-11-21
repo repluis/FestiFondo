@@ -27,6 +27,7 @@ class UpdateCampaignHttpTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->actingAs((new \App\Models\User())->forceFill(['id' => 1, 'oid' => 1, 'name' => 'Admin']));
 
         $this->service = Mockery::mock(CampaignService::class);
         $this->app->instance(CampaignService::class, $this->service);

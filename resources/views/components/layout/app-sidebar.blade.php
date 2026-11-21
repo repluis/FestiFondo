@@ -4,6 +4,7 @@
     $sections = [
         'financiero' => [
             'label' => 'Financiero',
+            'auth'  => true,
             'links' => [
                 ['url' => '/v1/financial/fund-raising',   'label' => 'Recaudación',    'icon' => '🎯'],
                 ['url' => '/v1/financial/campaigns',      'label' => 'Campañas',       'icon' => '📣'],
@@ -12,6 +13,7 @@
         ],
         'administrativo' => [
             'label' => 'Administrativo',
+            'auth'  => true,
             'links' => [
                 ['url' => '/v1/financial/members', 'label' => 'Miembros', 'icon' => '👥'],
             ],
@@ -23,6 +25,9 @@
             ],
         ],
     ];
+
+    // Los invitados solo ven las secciones públicas
+    $sections = array_filter($sections, fn ($s) => empty($s['auth']) || auth()->check());
 
     // Detectar la sección activa según la URL actual
     $activeSection = null;
