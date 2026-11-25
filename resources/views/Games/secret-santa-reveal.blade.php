@@ -157,6 +157,14 @@
             <p class="hint" id="hint" style="display:none;">
                 🤫 Guárdalo en secreto. Este enlace ya no volverá a mostrar el nombre.
             </p>
+            <p class="hint" id="closing" style="display:none; color:var(--color-warning); font-weight:600;"></p>
+
+            {{-- Se muestra cuando se oculta el nombre (5 s después de revelarlo) --}}
+            <div id="closed" style="display:none;">
+                <div class="icon-big">🔒</div>
+                <p class="title" style="font-size:1.3rem;">Tu amigo secreto ya fue revelado</p>
+                <p class="msg" style="margin-top:.5rem;">Por seguridad el nombre se ocultó. Ya puedes cerrar esta pestaña.</p>
+            </div>
         @endif
 
     </div>
@@ -199,6 +207,23 @@
         $('name').style.display = 'block';
         $('hint').style.display = 'block';
         confetti();
+
+        // A los 5 s se oculta el nombre y se intenta cerrar la pestaña
+        const CLOSE_AFTER_S = 5;
+        for (let s = CLOSE_AFTER_S; s > 0; s--) {
+            $('closing').textContent = `Se cerrará en ${s} segundo${s === 1 ? '' : 's'}…`;
+            $('closing').style.display = 'block';
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        // Quitar el nombre de la pantalla y del DOM
+        $('name').textContent = '';
+        ['name', 'hint', 'closing', 'gift'].forEach(id => $(id).style.display = 'none');
+        document.querySelectorAll('.panel > .hello, .panel > .title').forEach(el => el.style.display = 'none');
+        $('closed').style.display = 'block';
+
+        // Solo funciona si la pestaña la abrió un script; si no, queda el aviso de arriba
+        window.close();
     })();
 
     function confetti() {
